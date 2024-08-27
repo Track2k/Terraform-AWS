@@ -1,0 +1,1 @@
+The above Terraform configuration creates Custom VPC with a Bastion host and a Private instance 
