@@ -1,1 +1,1 @@
-The above Terraform configuration creates Custom VPC with a Bastion host and a Private instance 
+Creating a highly available and scalable architecture for web server on AWS
