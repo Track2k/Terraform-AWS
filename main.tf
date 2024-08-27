@@ -240,3 +240,40 @@ resource "aws_security_group" "TF_privateinstance_sg" {
   }
 
 }
+
+
+resource "aws_security_group" "Db-sg" {
+  vpc_id      = aws_vpc.vpc.id
+  description = "db sg"
+
+  ingress {
+
+    from_port       = "3306"
+    to_port         = "3306"
+    protocol        = "tcp"
+    description     = "Mysql access"
+    security_groups = [aws_security_group.Webserversg.id]
+  }
+
+}
+
+resource "aws_db_subnet_group" "db_subnetgrp" {
+  name = "dbsubnetgrp"
+  subnet_ids = [aws_subnet.Private-subnet-A.id, aws_subnet.Private-subnet-B.id]
+  
+}
+
+resource "aws_db_instance" "TF" {
+  allocated_storage      = 10
+  db_name                = "mydb"
+  engine                 = "mysql"
+  engine_version         = "8.0.35"
+  instance_class         = "db.t3.micro"
+  username               = "admin"
+  password               = "admin123"
+  parameter_group_name   = "default.mysql8.0"
+  skip_final_snapshot    = true
+  storage_encrypted      = false
+  vpc_security_group_ids = [aws_security_group.Db-sg.id]
+  db_subnet_group_name = aws_db_subnet_group.db_subnetgrp.name
+}

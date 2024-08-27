@@ -4,7 +4,7 @@
 #}
 
 output "aws_instance" {
-  value       = aws_instance.Bhost.public_ip
+  value       = aws_instance.Web-server.public_ip
   description = "Instance public ip"
 
 }
