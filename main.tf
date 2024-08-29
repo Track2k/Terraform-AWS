@@ -119,23 +119,36 @@ resource "aws_route_table_association" "PrivateRouteAssociationB" {
 }
 
 
-
-resource "aws_instance" "Web-server" {
+# private instance on AZ-1a"
+resource "aws_instance" "Private-server-a" {
   ami               = "ami-0e86e20dae9224db8"
   availability_zone = "us-east-1a"
-  subnet_id         = aws_subnet.Public-subnet-A.id
+  subnet_id         = aws_subnet.Private-subnet-A.id
   instance_type     = "t2.micro"
-  security_groups   = [aws_security_group.Webserversg.id]
+  security_groups   = []
 
   tags = {
-    Name = "TF-Web-Server"
+    Name = "TF-Web-Server-A"
   }
 }
 
+# Private instance on AZ-1b"
+resource "aws_instance" "Private-server-b" {
+  ami               = "ami-0e86e20dae9224db8"
+  availability_zone = "us-east-1b"
+  subnet_id         = aws_subnet.Private-subnet-A.id
+  instance_type     = "t2.micro"
+  security_groups   = []
 
-resource "aws_security_group" "Webserversg" {
+  tags = {
+    Name = "TF-Web-Server-B"
+  }
+}
+
+# EC2 security group to allow inbound http and https from internet facing ALB
+resource "aws_security_group" "private-server-sg" {
   vpc_id      = aws_vpc.vpc.id
-  description = "to allow internet to connect to bastion host on public subnet A"
+  description = "to allow internet to connect to private webservers through ALB"
 
   ingress {
 
@@ -143,7 +156,7 @@ resource "aws_security_group" "Webserversg" {
     to_port     = 22
     description = "ssh"
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    security_groups = [aws_security_group.internetfacingALB-sg]
   }
   ingress {
 
@@ -151,7 +164,7 @@ resource "aws_security_group" "Webserversg" {
     to_port     = 80
     description = "http"
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    security_groups = [aws_security_group.internetfacingALB-sg]
   }
   ingress {
 
@@ -159,7 +172,7 @@ resource "aws_security_group" "Webserversg" {
     to_port     = 443
     description = "https"
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    security_groups = [aws_security_group.internetfacingALB-sg]
   }
   egress {
     from_port   = 0
@@ -172,61 +185,33 @@ resource "aws_security_group" "Webserversg" {
   }
 }
 
-resource "aws_instance" "Bhost" {
-  ami               = "ami-0e86e20dae9224db8"
-  availability_zone = "us-east-1a"
-  subnet_id         = aws_subnet.Public-subnet-A.id
-  instance_type     = "t2.micro"
-  security_groups   = [aws_security_group.Bastionhostsg.id]
-
-  tags = {
-    Name = "TFBastionHost"
-  }
+resource "aws_lb" "internetfacingALB" {
+  internal = false
+  load_balancer_type = "application"
+  security_groups = [aws_security_group.internetfacingALB-sg.id]
+  subnets = [ aws_subnet.Public-subnet-A.id, aws_subnet.Public-subnet-B.id ]
+  
 }
 
-resource "aws_security_group" "Bastionhostsg" {
+resource "aws_security_group" "internetfacingALB-sg" {
   vpc_id      = aws_vpc.vpc.id
-  description = "to allow internet to connect to bastion host on public subnet A"
+  description = "to allow internet to connect to private webservers through ALB"
 
   ingress {
 
-    from_port   = 22
-    to_port     = 22
+    from_port   = 80
+    to_port     = 80
+    description = "http"
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
+    ingress {
+
+    from_port   = 443
+    to_port     = 443
+    description = "https"
+    protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
-  }
-  tags = {
-    Name = "Terraform Bhost-sg"
-  }
-}
-
-resource "aws_instance" "TF_privateInstance" {
-  ami               = "ami-0e86e20dae9224db8"
-  availability_zone = "us-east-1a"
-  subnet_id         = aws_subnet.Private-subnet-A.id
-  instance_type     = "t2.micro"
-  security_groups   = [aws_security_group.TF_privateinstance_sg.id]
-  key_name          = "PrivateInstancekey"
-  tags = {
-    Name = "TF-PrivateInstance"
-  }
-}
-
-resource "aws_security_group" "TF_privateinstance_sg" {
-  vpc_id      = aws_vpc.vpc.id
-  description = "to connect to bastion host sg"
-
-  ingress {
-    from_port       = 22
-    to_port         = 22
-    protocol        = "tcp"
-    security_groups = [aws_security_group.Bastionhostsg.id]
   }
 
   egress {
@@ -236,9 +221,8 @@ resource "aws_security_group" "TF_privateinstance_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
   tags = {
-    Name = "Terraform Priv-Instance-sg"
+    Name = "Terraform-ALB-Sg"
   }
-
 }
 
 
@@ -252,15 +236,15 @@ resource "aws_security_group" "Db-sg" {
     to_port         = "3306"
     protocol        = "tcp"
     description     = "Mysql access"
-    security_groups = [aws_security_group.Webserversg.id]
+    security_groups = [aws_security_group.private-server-sg.id]
   }
 
 }
 
 resource "aws_db_subnet_group" "db_subnetgrp" {
-  name = "dbsubnetgrp"
+  name       = "dbsubnetgrp"
   subnet_ids = [aws_subnet.Private-subnet-A.id, aws_subnet.Private-subnet-B.id]
-  
+
 }
 
 resource "aws_db_instance" "TF" {
@@ -275,5 +259,10 @@ resource "aws_db_instance" "TF" {
   skip_final_snapshot    = true
   storage_encrypted      = false
   vpc_security_group_ids = [aws_security_group.Db-sg.id]
-  db_subnet_group_name = aws_db_subnet_group.db_subnetgrp.name
+  db_subnet_group_name   = aws_db_subnet_group.db_subnetgrp.name
 }
+
+
+
+
+
