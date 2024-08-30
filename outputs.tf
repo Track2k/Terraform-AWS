@@ -3,11 +3,11 @@
 
 #}
 
-output "aws_instance" {
-  value       = aws_instance.Web-server.public_ip
-  description = "Instance public ip"
+# output "aws_instance" {
+#   value       = aws_instance.Web-server.public_ip
+#   description = "Instance public ip"
 
-}
+# }
 
 
 
