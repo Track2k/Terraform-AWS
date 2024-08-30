@@ -125,7 +125,7 @@ resource "aws_instance" "Private-server-a" {
   availability_zone = "us-east-1a"
   subnet_id         = aws_subnet.Private-subnet-A.id
   instance_type     = "t2.micro"
-  security_groups   = []
+  security_groups   = [aws_security_group.private-server-sg.id]
 
   tags = {
     Name = "TF-Web-Server-A"
@@ -136,9 +136,9 @@ resource "aws_instance" "Private-server-a" {
 resource "aws_instance" "Private-server-b" {
   ami               = "ami-0e86e20dae9224db8"
   availability_zone = "us-east-1b"
-  subnet_id         = aws_subnet.Private-subnet-A.id
+  subnet_id         = aws_subnet.Private-subnet-B.id
   instance_type     = "t2.micro"
-  security_groups   = []
+  security_groups   = [aws_security_group.private-server-sg.id]
 
   tags = {
     Name = "TF-Web-Server-B"
@@ -156,7 +156,7 @@ resource "aws_security_group" "private-server-sg" {
     to_port     = 22
     description = "ssh"
     protocol    = "tcp"
-    security_groups = [aws_security_group.internetfacingALB-sg]
+    security_groups = [aws_security_group.internetfacingALB-sg.id]
   }
   ingress {
 
@@ -164,7 +164,7 @@ resource "aws_security_group" "private-server-sg" {
     to_port     = 80
     description = "http"
     protocol    = "tcp"
-    security_groups = [aws_security_group.internetfacingALB-sg]
+    security_groups = [aws_security_group.internetfacingALB-sg.id]
   }
   ingress {
 
@@ -172,7 +172,7 @@ resource "aws_security_group" "private-server-sg" {
     to_port     = 443
     description = "https"
     protocol    = "tcp"
-    security_groups = [aws_security_group.internetfacingALB-sg]
+    security_groups = [aws_security_group.internetfacingALB-sg.id]
   }
   egress {
     from_port   = 0
@@ -195,7 +195,7 @@ resource "aws_lb" "internetfacingALB" {
 
 resource "aws_security_group" "internetfacingALB-sg" {
   vpc_id      = aws_vpc.vpc.id
-  description = "to allow internet to connect to private webservers through ALB"
+  description = "ALB facing internet"
 
   ingress {
 
